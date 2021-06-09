@@ -10,7 +10,7 @@ from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
-from utils.plots import colors, plot_one_box
+from utils.plots import colors, plot_one_box, plot_one_circle, plot_line
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
@@ -99,6 +99,33 @@ def detect(opt):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
+                
+                detected_obj = dict()
+                for *xyxy, conf, cls in reversed(det):
+                    detected_obj[int(cls)] = []
+                
+                # print(detected_obj)
+
+                for *xyxy, conf, cls in reversed(det):
+                    # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                    detected_obj[int(cls)].append(xyxy[:])
+                  
+                # print(detected_obj)
+                
+                for ref_do  in detected_obj[0]:
+                    for watch_do in detected_obj[1]:
+                        c1 = (int((ref_do[0] + ref_do[2]) /2)   , int((ref_do[1] + ref_do[3]) /2) ) 
+                        c2 = (int((watch_do[0] + watch_do[2]) /2) , int((watch_do[1] + watch_do[3]) /2) )
+                        distance = 1 * ((c1[0] - c2[0])**2  + (c1[1] - c2[1])**2) ** 0.5
+
+                        r1 = int(((int((ref_do[2] - ref_do[0])**2) + int((ref_do[2] - ref_do[0])**2))**0.5) / 2)
+                        r2 = int(((int((watch_do[2] - watch_do[0])**2) + int((watch_do[2] - watch_do[0])**2))**0.5) / 2)
+                        e2e_distance = 1 * (((c1[0] - c2[0])**2  + (c1[1] - c2[1])**2) ** 0.5 - (r1 + r2))
+
+                        fmtLabel = f"{distance:.1f}px, {e2e_distance:.1f}px"
+                        plot_line(im0, c1, c2, color=colors(c, True), label=fmtLabel)
+
+
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
@@ -110,7 +137,7 @@ def detect(opt):
                     if save_img or opt.save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
-                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness)
+                        plot_one_circle(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness)
                         if opt.save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
